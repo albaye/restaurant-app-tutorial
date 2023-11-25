@@ -10,10 +10,10 @@ addons.setConfig({
     // brandImage: "",
     brandTarget: "_self",
 
-    colorSecondary: "#ffcc00",
-    appBg: "#f0f0f0",
-    appBorderColor: "#ccc",
-    textColor: "#333",
-    barTextColor: "#666"
+    // colorSecondary: "#ffcc00",
+    // appBg: "#f0f0f0",
+    // appBorderColor: "#ccc",
+    // textColor: "#333",
+    // barTextColor: "#666"
   })
 })
