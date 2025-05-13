@@ -1,0 +1,52 @@
+name: Automated Release
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:    
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          npm run changelog
+          cat CHANGELOG.md >> RELEASE_NOTES.md
+          echo "RELEASE_BODY=$(cat RELEASE_NOTES.md)" >> $GITHUB_OUTPUT
+
+      - name: Get Next Version
+        id: version
+        run: echo "NEXT_VERSION=$(npm version patch --no-git-tag-version)" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.NEXT_VERSION }}
+          release_name: Release v${{ steps.version.outputs.NEXT_VERSION }}
+          body: ${{ steps.changelog.outputs.RELEASE_BODY }}
+          draft: false
+          prerelease: false
+
+      - name: Commit and Push `package.json` and `CHANGELOG.md`
+        run: |
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): v${{ steps.version.outputs.NEXT_VERSION }}"
+          git push origin HEAD:prod --follow-tags
