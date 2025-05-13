@@ -10,6 +10,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating releases and pushing tags
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,7 +23,7 @@ jobs:
           node-version: 'lts/*'
 
       - name: Install Dependencies
-        run: npm install # Changed from npm ci
+        run: npm install
 
       - name: Generate Changelog
         id: changelog
@@ -41,7 +43,7 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.NEXT_VERSION }}
           release_name: Release v${{ steps.version.outputs.NEXT_VERSION }}
-          body_path: ${{ steps.changelog.outputs.RELEASE_BODY_FILE }} # Read body from the file
+          body_path: ${{ steps.changelog.outputs.RELEASE_BODY_FILE }}
           draft: false
           prerelease: false
 
@@ -49,4 +51,4 @@ jobs:
         run: |
           git add package.json CHANGELOG.md
           git commit -m "chore(release): v${{ steps.version.outputs.NEXT_VERSION }}"
-          git push origin HEAD:master --follow-tags # Assuming your prod branch is 'master'
+          git push origin HEAD:master --follow-tags
