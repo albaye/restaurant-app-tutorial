@@ -21,7 +21,9 @@ jobs:
           node-version: 'lts/*'
 
       - name: Install Dependencies
-        run: npm install
+        run: |
+          npm ci
+          npm install -D conventional-changelog-cli
 
       - name: Generate Changelog
         id: changelog
