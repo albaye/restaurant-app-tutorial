@@ -54,3 +54,13 @@ jobs:
           git add package.json CHANGELOG.md
           git commit -m "chore(release): v${{ steps.version.outputs.NEXT_VERSION }}"
           git push origin HEAD:master --follow-tags
+
+      - name: Merge to Staging and Dev
+        run: |
+          git checkout staging
+          git merge --no-ff master -m "Merge release v${{ steps.version.outputs.NEXT_VERSION }} from master"
+          git push origin staging
+
+          git checkout dev
+          git merge --no-ff master -m "Merge release v${{ steps.version.outputs.NEXT_VERSION }} from master"
+          git push origin dev
