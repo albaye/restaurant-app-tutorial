@@ -3,7 +3,7 @@ name: Automated Release
 on:
   push:
     branches:
-      - main
+      - master
 
   workflow_dispatch:    
 
@@ -21,9 +21,7 @@ jobs:
           node-version: 'lts/*'
 
       - name: Install Dependencies
-        run: |
-          npm ci
-          npm install -D conventional-changelog-cli
+        run: npm install # Changed from npm ci to include dev dependencies
 
       - name: Generate Changelog
         id: changelog
@@ -51,4 +49,4 @@ jobs:
         run: |
           git add package.json CHANGELOG.md
           git commit -m "chore(release): v${{ steps.version.outputs.NEXT_VERSION }}"
-          git push origin HEAD:prod --follow-tags
+          git push origin HEAD:master --follow-tags # Assuming your prod branch is 'master'
