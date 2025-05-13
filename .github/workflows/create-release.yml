@@ -29,8 +29,8 @@ jobs:
         id: changelog
         run: |
           npm run changelog
-          cat CHANGELOG.md >> RELEASE_NOTES.md
-          echo "RELEASE_BODY=$(cat RELEASE_NOTES.md)" >> $GITHUB_OUTPUT
+          export RELEASE_BODY=$(cat CHANGELOG.md)
+          echo "RELEASE_BODY=${RELEASE_BODY}" >> $GITHUB_OUTPUT
 
       - name: Get Next Version
         id: version
