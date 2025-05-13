@@ -3,13 +3,15 @@ name: Automated Release
 on:
   push:
     branches:
-      - main
+      - master
 
   workflow_dispatch:    
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required for creating releases and pushing tags
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,14 +23,14 @@ jobs:
           node-version: 'lts/*'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Generate Changelog
         id: changelog
         run: |
           npm run changelog
-          cat CHANGELOG.md >> RELEASE_NOTES.md
-          echo "RELEASE_BODY=$(cat RELEASE_NOTES.md)" >> $GITHUB_OUTPUT
+          echo "RELEASE_BODY_FILE=release_body.txt" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md > release_body.txt
 
       - name: Get Next Version
         id: version
@@ -41,12 +43,14 @@ jobs:
         with:
           tag_name: v${{ steps.version.outputs.NEXT_VERSION }}
           release_name: Release v${{ steps.version.outputs.NEXT_VERSION }}
-          body: ${{ steps.changelog.outputs.RELEASE_BODY }}
+          body_path: ${{ steps.changelog.outputs.RELEASE_BODY_FILE }}
           draft: false
           prerelease: false
 
       - name: Commit and Push `package.json` and `CHANGELOG.md`
         run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions Bot"
           git add package.json CHANGELOG.md
           git commit -m "chore(release): v${{ steps.version.outputs.NEXT_VERSION }}"
-          git push origin HEAD:prod --follow-tags
+          git push origin HEAD:master --follow-tags
