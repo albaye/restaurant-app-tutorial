@@ -1,3 +1,7 @@
+## [0.0.11](https://github.com/albaye/restaurant-app-tutorial/compare/v0.0.10...v0.0.11) (2025-05-14)
+
+
+
 ## [0.0.10](https://github.com/albaye/restaurant-app-tutorial/compare/v0.0.9...v0.0.10) (2025-05-14)
 
 
