@@ -68,7 +68,7 @@ jobs:
             release_notes=$(sed -n "$((start_line + 1)),\$p" CHANGELOG.md)
           fi
 
-          echo "LAST_RELEASE_BODY=$release_notes" > release_body.txt
+          echo "$release_notes" > release_body.txt
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
