@@ -71,7 +71,6 @@ jobs:
           # Sanitize release notes to handle special characters and multiline output
           sanitized_notes=$(echo "$release_notes" | sed -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/%0A/g')
 
-          # Output to GitHub Actions
           echo "LAST_RELEASE_BODY=$sanitized_notes" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
@@ -81,7 +80,7 @@ jobs:
         with:
           tag_name: ${{ steps.versioning.outputs.NEXT_VERSION }}
           release_name: Release ${{ steps.versioning.outputs.NEXT_VERSION }}
-          body_path: ${{ steps.versioning.outputs.RELEASE_BODY_FILE }}
+          body_path: ${{ steps.versioning.outputs.LAST_RELEASE_BODY }}
           draft: false
           prerelease: false
 
@@ -93,12 +92,12 @@ jobs:
           git commit -m "chore(release): ${{ steps.versioning.outputs.NEXT_VERSION }}"
           git push origin HEAD:master --follow-tags
 
-      - name: Merge to Staging and Dev
+      - name: Merge to Staging and Development
         run: |
           git checkout staging
           git merge --no-ff master -m "Merge release ${{ steps.versioning.outputs.NEXT_VERSION }} from master"
           git push origin staging
 
-          git checkout dev
+          git checkout development
           git merge --no-ff master -m "Merge release ${{ steps.versioning.outputs.NEXT_VERSION }} from master"
-          git push origin dev
+          git push origin development
