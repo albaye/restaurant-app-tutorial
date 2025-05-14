@@ -68,7 +68,10 @@ jobs:
             release_notes=$(sed -n "$((start_line + 1)),\$p" CHANGELOG.md)
           fi
 
-          echo "LAST_RELEASE_BODY=$release_notes" >> $GITHUB_OUTPUT
+          # Sanitize release notes to handle special characters and multiline output
+          sanitized_notes=$(echo "$release_notes" | sed -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/%0A/g')
+
+          echo "LAST_RELEASE_BODY=$sanitized_notes" > release_body.txt
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
@@ -77,7 +80,7 @@ jobs:
         with:
           tag_name: ${{ steps.versioning.outputs.NEXT_VERSION }}
           release_name: Release ${{ steps.versioning.outputs.NEXT_VERSION }}
-          body_path: ${{ steps.versioning.outputs.LAST_RELEASE_BODY }}
+          body_path: ${{ steps.versioning.outputs.RELEASE_BODY_FILE }}
           draft: false
           prerelease: false
 
