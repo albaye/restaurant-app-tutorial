@@ -5,7 +5,7 @@ on:
     branches:
       - master
 
-  workflow_dispatch:    
+  workflow_dispatch:
 
 jobs:
   release:
@@ -25,42 +25,79 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Generate Changelog
-        id: changelog
+      - name: Generate Changelog and Update Version
+        id: versioning
         run: |
           npm run changelog
           echo "RELEASE_BODY_FILE=release_body.txt" >> $GITHUB_OUTPUT
           cat CHANGELOG.md > release_body.txt
+          NEXT_VERSION=$(npm version patch --no-git-tag-version)
+          echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Get Next Version
-        id: version
-        run: echo "NEXT_VERSION=$(npm version patch --no-git-tag-version)" >> $GITHUB_OUTPUT
+      - name: Get Last Release Notes
+        id: last_release_notes
+        run: |
+          # Ensure CHANGELOG.md exists before processing
+          if [ ! -f CHANGELOG.md ]; then
+            # echo "LAST_RELEASE_BODY=No changelog found" >> $GITHUB_OUTPUT
+            echo "No changelog found"
+            exit 0
+          fi
+
+          # Case-insensitive, handles variations like "# v1.0.0", "## V1.0.0"
+          LAST_RELEASE_HEADER=$(grep -E -i '^#+\s*v[0-9]' CHANGELOG.md | head -n 1)
+
+          # If no header found, exit with empty release body
+          if [ -z "$LAST_RELEASE_HEADER" ]; then
+            # echo "LAST_RELEASE_BODY=" >> $GITHUB_OUTPUT
+            echo ""
+            exit 0
+          fi
+
+          # Escape special characters to handle headers with regex characters
+          ESCAPED_HEADER=$(printf '%s\n' "$LAST_RELEASE_HEADER" | sed 's/[[\.*^$/]/\\&/g')
+
+          # Find start and end lines more reliably
+          start_line=$(grep -n -F "$ESCAPED_HEADER" CHANGELOG.md | cut -d':' -f1)
+          next_version_line=$(grep -n -E '^#+\s*v[0-9]' CHANGELOG.md | awk -v start="$start_line" '$1 > start {print $1; exit}' | cut -d':' -f1)
+
+          # Extract release notes
+          if [ -n "$next_version_line" ]; then
+            release_notes=$(sed -n "$((start_line + 1)),$((next_version_line - 1))p" CHANGELOG.md)
+          else
+            release_notes=$(sed -n "$((start_line + 1)),\$p" CHANGELOG.md)
+          fi
+
+          # Sanitize release notes to handle special characters and multiline output
+          sanitized_notes=$(echo "$release_notes" | sed -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/%0A/g')
+
+          echo "LAST_RELEASE_BODY=$sanitized_notes" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.version.outputs.NEXT_VERSION }}
-          release_name: Release v${{ steps.version.outputs.NEXT_VERSION }}
-          body_path: ${{ steps.changelog.outputs.RELEASE_BODY_FILE }}
+          tag_name: ${{ steps.versioning.outputs.NEXT_VERSION }}
+          release_name: Release ${{ steps.versioning.outputs.NEXT_VERSION }}
+          body_path: ${{ steps.versioning.outputs.LAST_RELEASE_BODY }}
           draft: false
           prerelease: false
 
-      - name: Commit and Push `package.json` and `CHANGELOG.md`
+      - name: Commit and Push to Master
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "GitHub Actions Bot"
           git add package.json CHANGELOG.md
-          git commit -m "chore(release): v${{ steps.version.outputs.NEXT_VERSION }}"
+          git commit -m "chore(release): ${{ steps.versioning.outputs.NEXT_VERSION }}"
           git push origin HEAD:master --follow-tags
 
-      - name: Merge to Staging and Dev
+      - name: Merge to Staging and Development
         run: |
           git checkout staging
-          git merge --no-ff master -m "Merge release v${{ steps.version.outputs.NEXT_VERSION }} from master"
+          git merge --no-ff master -m "Merge release ${{ steps.versioning.outputs.NEXT_VERSION }} from master"
           git push origin staging
 
-          git checkout dev
-          git merge --no-ff master -m "Merge release v${{ steps.version.outputs.NEXT_VERSION }} from master"
-          git push origin dev
+          git checkout development
+          git merge --no-ff master -m "Merge release ${{ steps.versioning.outputs.NEXT_VERSION }} from master"
+          git push origin development
