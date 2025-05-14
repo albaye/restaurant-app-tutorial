@@ -5,7 +5,7 @@ on:
     branches:
       - master
 
-  workflow_dispatch:    
+  workflow_dispatch:
 
 jobs:
   release:
@@ -25,43 +25,58 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Get Next Version
-        id: version
-        run: echo "NEXT_VERSION=$(npm version patch --no-git-tag-version)" >> $GITHUB_OUTPUT
-
-      - name: Generate Latest Release Notes
-        id: changelog
+      - name: Generate Changelog and Update Version
+        id: versioning
         run: |
           npm run changelog
           echo "RELEASE_BODY_FILE=release_body.txt" >> $GITHUB_OUTPUT
-          # Extract only the latest release notes
-          sed -n '/^## /,/^## /p' CHANGELOG.md | sed '$d' > release_body.txt
+          cat CHANGELOG.md > release_body.txt
+          NEXT_VERSION=$(npm version patch --no-git-tag-version)
+          echo "NEXT_VERSION=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get Last Release Notes
+        id: last_release_notes
+        run: |
+          LAST_RELEASE_HEADER=$(head -n 100 CHANGELOG.md | grep -E '^#+ v' | head -n 1)
+          if [ -n "$LAST_RELEASE_HEADER" ]; then
+            start_line=$(grep -n -m 1 "^${LAST_RELEASE_HEADER//./\\.}" CHANGELOG.md | cut -d':' -f1)
+            end_marker=$(grep -n -E '^#+ v' CHANGELOG.md | awk "NR > 1 {print \$1}" | head -n 1)
+            if [ -n "$end_marker" ]; then
+              end_line=$((end_marker - 1))
+              release_notes=$(sed -n "${start_line},$end_line p" CHANGELOG.md)
+            else
+              release_notes=$(sed -n "${start_line},$ p" CHANGELOG.md)
+            fi
+            echo "LAST_RELEASE_BODY=$(echo "$release_notes" | sed '1d')" >> $GITHUB_OUTPUT
+          else
+            echo "LAST_RELEASE_BODY=" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.version.outputs.NEXT_VERSION }}
-          release_name: Release ${{ steps.version.outputs.NEXT_VERSION }}
-          body_path: ${{ steps.changelog.outputs.RELEASE_BODY_FILE }}
+          tag_name: ${{ steps.versioning.outputs.NEXT_VERSION }}
+          release_name: Release ${{ steps.versioning.outputs.NEXT_VERSION }}
+          body_path: ${{ steps.versioning.outputs.RELEASE_BODY_FILE }}
           draft: false
           prerelease: false
 
-      - name: Commit and Push `package.json` and `CHANGELOG.md`
+      - name: Commit and Push to Master
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "GitHub Actions Bot"
           git add package.json CHANGELOG.md
-          git commit -m "chore(release): ${{ steps.version.outputs.NEXT_VERSION }}"
+          git commit -m "chore(release): ${{ steps.versioning.outputs.NEXT_VERSION }}"
           git push origin HEAD:master --follow-tags
 
       - name: Merge to Staging and Dev
         run: |
           git checkout staging
-          git merge --no-ff master -m "Merge release ${{ steps.version.outputs.NEXT_VERSION }} from master"
+          git merge --no-ff master -m "Merge release ${{ steps.versioning.outputs.NEXT_VERSION }} from master"
           git push origin staging
 
           git checkout dev
-          git merge --no-ff master -m "Merge release ${{ steps.version.outputs.NEXT_VERSION }} from master"
+          git merge --no-ff master -m "Merge release ${{ steps.versioning.outputs.NEXT_VERSION }} from master"
           git push origin dev
