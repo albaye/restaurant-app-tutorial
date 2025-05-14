@@ -25,24 +25,25 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      - name: Generate Changelog
+      - name: Get Next Version
+        id: version
+        run: echo "NEXT_VERSION=$(npm version patch --no-git-tag-version)" >> $GITHUB_OUTPUT
+
+      - name: Generate Latest Release Notes
         id: changelog
         run: |
           npm run changelog
           echo "RELEASE_BODY_FILE=release_body.txt" >> $GITHUB_OUTPUT
-          cat CHANGELOG.md > release_body.txt
-
-      - name: Get Next Version
-        id: version
-        run: echo "NEXT_VERSION=$(npm version patch --no-git-tag-version)" >> $GITHUB_OUTPUT
+          # Extract only the latest release notes
+          sed -n '/^## /,/^## /p' CHANGELOG.md | sed '$d' > release_body.txt
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ steps.version.outputs.NEXT_VERSION }}
-          release_name: Release v${{ steps.version.outputs.NEXT_VERSION }}
+          tag_name: ${{ steps.version.outputs.NEXT_VERSION }}
+          release_name: Release ${{ steps.version.outputs.NEXT_VERSION }}
           body_path: ${{ steps.changelog.outputs.RELEASE_BODY_FILE }}
           draft: false
           prerelease: false
@@ -52,15 +53,15 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "GitHub Actions Bot"
           git add package.json CHANGELOG.md
-          git commit -m "chore(release): v${{ steps.version.outputs.NEXT_VERSION }}"
+          git commit -m "chore(release): ${{ steps.version.outputs.NEXT_VERSION }}"
           git push origin HEAD:master --follow-tags
 
       - name: Merge to Staging and Dev
         run: |
           git checkout staging
-          git merge --no-ff master -m "Merge release v${{ steps.version.outputs.NEXT_VERSION }} from master"
+          git merge --no-ff master -m "Merge release ${{ steps.version.outputs.NEXT_VERSION }} from master"
           git push origin staging
 
           git checkout dev
-          git merge --no-ff master -m "Merge release v${{ steps.version.outputs.NEXT_VERSION }} from master"
+          git merge --no-ff master -m "Merge release ${{ steps.version.outputs.NEXT_VERSION }} from master"
           git push origin dev
