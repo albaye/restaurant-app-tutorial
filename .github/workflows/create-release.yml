@@ -68,10 +68,7 @@ jobs:
             release_notes=$(sed -n "$((start_line + 1)),\$p" CHANGELOG.md)
           fi
 
-          # Sanitize release notes to handle special characters and multiline output
-          sanitized_notes=$(echo "$release_notes" | sed -e 's/"/\\"/g' -e ':a;N;$!ba;s/\n/%0A/g')
-
-          echo "LAST_RELEASE_BODY=$sanitized_notes" > release_body.txt
+          echo "LAST_RELEASE_BODY=$release_notes" > release_body.txt
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
